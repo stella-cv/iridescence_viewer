@@ -24,6 +24,14 @@ class map_publisher;
 
 } // namespace stella_vslam
 
+namespace glk {
+class Texture;
+} // namespace glk
+
+namespace guik {
+class LightViewer;
+} // namespace guik
+
 namespace iridescence_viewer {
 
 class viewer {
@@ -58,6 +66,15 @@ public:
     bool is_terminated();
 
 private:
+    void ui_callback(std::shared_ptr<guik::LightViewer>& viewer);
+
+    void draw_rect(cv::Mat& img, const cv::KeyPoint& keypoint, const cv::Scalar& color);
+    unsigned int draw_tracked_points(
+        cv::Mat& img,
+        const std::vector<cv::KeyPoint>& keypoints,
+        const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& landmarks,
+        const bool mapping_is_enabled);
+
     //! system
     const std::shared_ptr<stella_vslam::system> system_;
     //! frame publisher
@@ -66,6 +83,22 @@ private:
     const std::shared_ptr<stella_vslam::publish::map_publisher> map_publisher_;
 
     const unsigned int interval_ms_;
+
+    bool select_keypoint_by_id_ = false;
+    int keypoint_id_ = 0;
+    bool select_landmark_by_id_ = false;
+    int landmark_id_ = 0;
+    bool is_paused_ = false;
+    bool show_all_keypoints_ = false;
+    bool show_rect_ = false;
+    bool filter_by_octave_ = false;
+    int octave_ = 0;
+    float current_frame_scale_ = 0.05f;
+    float keyframe_scale_ = 0.05f;
+    float selected_landmark_scale_ = 0.01f;
+    std::shared_ptr<glk::Texture> texture_ = nullptr;
+    bool clicked_ = false;
+    Eigen::Vector2d clicked_pt_;
 
     //-----------------------------------------
     // management for terminate process
