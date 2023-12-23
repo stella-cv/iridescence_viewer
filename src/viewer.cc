@@ -210,13 +210,13 @@ void viewer::run() {
 }
 
 void viewer::draw_rect(cv::Mat& img, const cv::KeyPoint& keypoint, const cv::Scalar& color) {
-    float angle = keypoint.angle;
+    float angle_rad = keypoint.angle / 180.0 * M_PI;
     float width = keypoint.size;
     float half_width = width / 2;
     cv::Point2f pt = keypoint.pt;
-    cv::Point2f pt2 = pt + cv::Point2f(half_width * std::cos(angle), half_width * std::sin(angle));
+    cv::Point2f pt2 = pt + cv::Point2f(half_width * std::cos(angle_rad), half_width * std::sin(angle_rad));
     cv::line(img, pt, pt2, color, 1);
-    cv::RotatedRect rotatedRectangle(pt, cv::Size(width, width), angle / M_PI * 180.0);
+    cv::RotatedRect rotatedRectangle(pt, cv::Size(width, width), keypoint.angle);
     cv::Point2f vertices[4];
     rotatedRectangle.points(vertices);
     for (int i = 0; i < 4; ++i) {
