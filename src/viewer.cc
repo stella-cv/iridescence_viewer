@@ -51,6 +51,15 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     ImGui::Text("Selected keypoint ID: %d", keypoint_id_);
     ImGui::Text("Selected landmark ID: %d", landmark_id_);
 
+    ImGui::Begin("Selected keypoint info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    if (!keypoint_info_.empty()) {
+        ImGui::Text("ID: %d", keypoint_id_);
+        ImGui::Text("%s", keypoint_info_.c_str());
+    }
+
+    ImGui::Begin("Selected landmark info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Text("ID: %d", landmark_id_);
+
     ImGui::Begin("image", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     if (texture_) {
         ImVec2 screen_pos = ImGui::GetCursorScreenPos();
@@ -244,7 +253,10 @@ unsigned int viewer::draw_tracked_points(
             }
         }
     }
+    constexpr int mark_size = 10;
+    const cv::Scalar mark_color{0, 0, 255};
     std::vector<std::pair<double, unsigned int>> distance_and_keypoint_idx;
+    bool keypoint_exists = false;
     for (unsigned int i = 0; i < keypoints.size(); ++i) {
         const auto& lm = landmarks.at(i);
         if (!lm) {
@@ -260,17 +272,23 @@ unsigned int viewer::draw_tracked_points(
         if (clicked_) {
             distance_and_keypoint_idx.emplace_back(std::hypot(clicked_pt_(0) - keypoints.at(i).pt.x, clicked_pt_(1) - keypoints.at(i).pt.y), i);
         }
-        const cv::Scalar color{0, 255, 0};
-        cv::circle(img, keypoints.at(i).pt, 2, color, -1);
+        const cv::Scalar keypoint_color{0, 255, 0};
+        cv::circle(img, keypoints.at(i).pt, 2, keypoint_color, -1);
         if (show_rect_) {
-            draw_rect(img, keypoints.at(i), color);
+            draw_rect(img, keypoints.at(i), keypoint_color);
         }
         if (select_landmark_by_id_ && lm->id_ == landmark_id_) {
-            const cv::Scalar color{0, 0, 255};
-            cv::circle(img, keypoints.at(i).pt, 10, color, 1);
+            // Mark keypoint corresponding to the selected landmarks.
+            cv::circle(img, keypoints.at(i).pt, mark_size, mark_color, 1);
+            keypoint_exists = true;
+
+            keypoint_info_ = "angle: " + std::to_string(keypoints.at(i).angle) + "\noctave: " + std::to_string(keypoints.at(i).octave);
         }
 
         ++num_tracked;
+    }
+    if (!keypoint_exists) {
+        keypoint_info_ = "";
     }
     if (!distance_and_keypoint_idx.empty()) {
         std::sort(distance_and_keypoint_idx.begin(), distance_and_keypoint_idx.end());
@@ -279,8 +297,10 @@ unsigned int viewer::draw_tracked_points(
         clicked_ = false;
     }
     if (select_keypoint_by_id_ && keypoint_id_ < keypoints.size()) {
-        const cv::Scalar color{0, 0, 255};
-        cv::circle(img, keypoints.at(keypoint_id_).pt, 10, color, 1);
+        // Mark selected keypoint
+        cv::circle(img, keypoints.at(keypoint_id_).pt, mark_size, mark_color, 1);
+
+        keypoint_info_ = "angle: " + std::to_string(keypoints.at(keypoint_id_).angle) + "\noctave: " + std::to_string(keypoints.at(keypoint_id_).octave);
     }
 
     return num_tracked;

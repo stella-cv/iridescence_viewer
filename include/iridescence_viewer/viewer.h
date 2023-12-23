@@ -105,6 +105,7 @@ private:
     std::shared_ptr<glk::Texture> texture_ = nullptr;
     bool clicked_ = false;
     Eigen::Vector2d clicked_pt_;
+    std::string keypoint_info_;
 
     //-----------------------------------------
     // management for terminate process
