@@ -9,6 +9,7 @@
 
 #include <glk/primitives/primitives.hpp>
 #include <glk/pointcloud_buffer.hpp>
+#include <glk/splatting.hpp>
 #include <glk/texture_opencv.hpp>
 #include <guik/viewer/light_viewer.hpp>
 
@@ -88,6 +89,10 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     if (filter_by_octave_) {
         ImGui::InputInt("Octave", &octave_);
     }
+    ImGui::Checkbox("Point splatting", &point_splatting_);
+    if (point_splatting_) {
+        ImGui::DragFloat("Point radius", &point_radius_, 0.01f, 0.01f, 1.0f);
+    }
     for (auto&& pair : checkbox_callback_map_) {
         if (ImGui::Checkbox(pair.first.c_str(), &is_paused_)) {
             if (pair.second) {
@@ -137,6 +142,7 @@ void viewer::run() {
         }
 
         std::vector<Eigen::Vector3f> points;
+        std::vector<Eigen::Vector3f> normals;
         for (const auto& lm : landmarks) {
             if (!lm || lm->will_be_erased()) {
                 continue;
@@ -146,9 +152,27 @@ void viewer::run() {
                 viewer->update_drawable("selected point", glk::Primitives::sphere(), guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)).translate(pos_w).scale(selected_landmark_scale_));
             }
             points.push_back(pos_w.cast<float>());
+            if (point_splatting_) {
+                normals.push_back((rot_ros_to_cv_map_frame * lm->get_obs_mean_normal()).cast<float>());
+            }
         }
         auto cloud_buffer = std::make_shared<glk::PointCloudBuffer>(points);
-        viewer->update_drawable("map", cloud_buffer, guik::FlatColor(Eigen::Vector4f(1.0f, 0.5f, 0.0f, 1.0f)));
+
+        if (point_splatting_) {
+            cloud_buffer->add_normals(normals);
+
+            // Create a splatting shader
+            auto splatting_shader = glk::create_splatting_shader();
+            // Create a splatting instance
+            auto splatting = std::make_shared<glk::Splatting>(splatting_shader);
+            splatting->set_point_radius(point_radius_);
+            splatting->set_cloud_buffer(cloud_buffer);
+
+            viewer->update_drawable("map", splatting, guik::FlatColor(Eigen::Vector4f(1.0f, 0.5f, 0.0f, 1.0f)));
+        }
+        else {
+            viewer->update_drawable("map", cloud_buffer, guik::FlatColor(Eigen::Vector4f(1.0f, 0.5f, 0.0f, 1.0f)));
+        }
 
         viewer->set_draw_xy_grid(false);
         viewer->update_drawable("coordinate_system", glk::Primitives::coordinate_system(), guik::VertexColor());

@@ -97,6 +97,8 @@ private:
     bool show_rect_ = false;
     bool filter_by_octave_ = false;
     int octave_ = 0;
+    bool point_splatting_ = false;
+    float point_radius_ = 0.01;
     float current_frame_scale_ = 0.05f;
     float keyframe_scale_ = 0.05f;
     float selected_landmark_scale_ = 0.01f;
