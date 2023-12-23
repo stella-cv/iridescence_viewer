@@ -15,8 +15,6 @@ class keyframe;
 class landmark;
 } // namespace data
 
-class system;
-
 namespace publish {
 class frame_publisher;
 class map_publisher;
@@ -39,12 +37,10 @@ public:
     /**
      * Constructor
      * @param yaml_node
-     * @param system
      * @param frame_publisher
      * @param map_publisher
      */
     viewer(const YAML::Node& yaml_node,
-           const std::shared_ptr<stella_vslam::system>& system,
            const std::shared_ptr<stella_vslam::publish::frame_publisher>& frame_publisher,
            const std::shared_ptr<stella_vslam::publish::map_publisher>& map_publisher);
 
@@ -59,11 +55,17 @@ public:
      */
     void request_terminate();
 
-    /**
-     * Check if the viewer is terminated or not
-     * @return whether the viewer is terminated or not
-     */
-    bool is_terminated();
+    void add_checkbox(std::string name, std::function<void(bool)> callback) {
+        checkbox_callback_map_.emplace_back(name, callback);
+    }
+
+    void add_button(std::string name, std::function<void()> callback) {
+        button_callback_map_.emplace_back(name, callback);
+    }
+
+    void add_close_callback(std::function<void()> callback) {
+        close_callback_ = callback;
+    }
 
 private:
     void ui_callback(std::shared_ptr<guik::LightViewer>& viewer);
@@ -75,12 +77,14 @@ private:
         const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& landmarks,
         const bool mapping_is_enabled);
 
-    //! system
-    const std::shared_ptr<stella_vslam::system> system_;
     //! frame publisher
     const std::shared_ptr<stella_vslam::publish::frame_publisher> frame_publisher_;
     //! map publisher
     const std::shared_ptr<stella_vslam::publish::map_publisher> map_publisher_;
+
+    std::vector<std::pair<std::string, std::function<void(bool)>>> checkbox_callback_map_;
+    std::vector<std::pair<std::string, std::function<void()>>> button_callback_map_;
+    std::function<void()> close_callback_ = nullptr;
 
     const unsigned int interval_ms_;
 
@@ -111,11 +115,6 @@ private:
      * @return
      */
     bool terminate_is_requested();
-
-    /**
-     * Raise the flag which indicates the main loop has been already terminated
-     */
-    void terminate();
 
     //! flag which indicates termination is requested or not
     bool terminate_is_requested_ = false;

@@ -1,7 +1,6 @@
 #include "iridescence_viewer/viewer.h"
 
 #include "stella_vslam/config.h"
-#include "stella_vslam/system.h"
 #include "stella_vslam/data/keyframe.h"
 #include "stella_vslam/data/landmark.h"
 #include "stella_vslam/publish/frame_publisher.h"
@@ -25,10 +24,9 @@ Eigen::Matrix4d rotate_pose(Eigen::Matrix4d pose_cw, Eigen::Matrix3d rot) {
 namespace iridescence_viewer {
 
 viewer::viewer(const YAML::Node& yaml_node,
-               const std::shared_ptr<stella_vslam::system>& system,
                const std::shared_ptr<stella_vslam::publish::frame_publisher>& frame_publisher,
                const std::shared_ptr<stella_vslam::publish::map_publisher>& map_publisher)
-    : system_(system), frame_publisher_(frame_publisher), map_publisher_(map_publisher),
+    : frame_publisher_(frame_publisher), map_publisher_(map_publisher),
       interval_ms_(1000.0f / yaml_node["fps"].as<float>(30.0)),
       select_keypoint_by_id_(false),
       keypoint_id_(0),
@@ -90,27 +88,19 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     if (filter_by_octave_) {
         ImGui::InputInt("Octave", &octave_);
     }
-    if (ImGui::Button("Reset")) {
-        if (system_->tracker_is_paused()) {
-            system_->resume_tracker();
-            is_paused_ = false;
-        }
-        system_->request_reset();
-    }
-    if (ImGui::Checkbox("Pause", &is_paused_)) {
-        if (is_paused_ && !system_->tracker_is_paused()) {
-            system_->pause_tracker();
-        }
-        else if (!is_paused_ && system_->tracker_is_paused()) {
-            system_->resume_tracker();
+    for (auto&& pair : checkbox_callback_map_) {
+        if (ImGui::Checkbox(pair.first.c_str(), &is_paused_)) {
+            if (pair.second) {
+                pair.second(is_paused_);
+            }
         }
     }
-    if (ImGui::Button("Save and exit")) {
-        if (system_->tracker_is_paused()) {
-            system_->resume_tracker();
-            is_paused_ = false;
+    for (auto&& pair : button_callback_map_) {
+        if (ImGui::Button(pair.first.c_str())) {
+            if (pair.second) {
+                pair.second();
+            }
         }
-        viewer->close();
     }
 }
 
@@ -190,9 +180,9 @@ void viewer::run() {
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms_));
     }
 
-    system_->request_terminate();
-
-    terminate();
+    if (close_callback_) {
+        close_callback_();
+    }
 }
 
 void viewer::draw_rect(cv::Mat& img, const cv::KeyPoint& keypoint, const cv::Scalar& color) {
@@ -277,19 +267,9 @@ void viewer::request_terminate() {
     terminate_is_requested_ = true;
 }
 
-bool viewer::is_terminated() {
-    std::lock_guard<std::mutex> lock(mtx_terminate_);
-    return is_terminated_;
-}
-
 bool viewer::terminate_is_requested() {
     std::lock_guard<std::mutex> lock(mtx_terminate_);
     return terminate_is_requested_;
-}
-
-void viewer::terminate() {
-    std::lock_guard<std::mutex> lock(mtx_terminate_);
-    is_terminated_ = true;
 }
 
 } // namespace iridescence_viewer
