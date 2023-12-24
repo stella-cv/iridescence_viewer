@@ -58,7 +58,10 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     }
 
     ImGui::Begin("Selected landmark info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::Text("ID: %d", landmark_id_);
+    if (!landmark_info_.empty()) {
+        ImGui::Text("ID: %d", landmark_id_);
+        ImGui::Text("%s", landmark_info_.c_str());
+    }
 
     ImGui::Begin("image", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     if (texture_) {
@@ -204,6 +207,7 @@ void viewer::run() {
             landmark_id_ = lm->id_;
             const Eigen::Vector3d pos_w = rot_ros_to_cv_map_frame * lm->get_pos_in_world();
             viewer->update_drawable("selected point", glk::Primitives::sphere(), guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)).translate(pos_w).scale(selected_landmark_scale_));
+            landmark_info_ = "num_observed: " + std::to_string(lm->get_num_observed()) + "\nobserved_ratio: " + std::to_string(lm->get_observed_ratio());
         }
 
         if (terminate_is_requested()) {
