@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 
 namespace stella_vslam {
 
@@ -113,7 +114,7 @@ private:
     bool follow_camera_ = true;
     bool filter_by_octave_ = false;
     int octave_ = 0;
-    bool point_splatting_ = false;
+    bool point_splatting_ = true;
     float point_radius_ = 0.01;
     float current_frame_scale_ = 0.05f;
     float keyframe_scale_ = 0.05f;
@@ -121,6 +122,7 @@ private:
     std::shared_ptr<glk::Texture> texture_ = nullptr;
     bool clicked_ = false;
     Eigen::Vector2d clicked_pt_;
+    std::optional<Eigen::Vector3f> clicked_point3d_;
     std::string keypoint_info_;
     std::string landmark_info_;
 

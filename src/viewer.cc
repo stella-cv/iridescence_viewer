@@ -44,6 +44,7 @@ viewer::viewer(const YAML::Node& yaml_node,
       follow_camera_(false),
       filter_by_octave_(false),
       octave_(0),
+      point_splatting_(true),
       current_frame_scale_(0.05f),
       keyframe_scale_(0.05f),
       selected_landmark_scale_(0.01f),
@@ -55,6 +56,8 @@ viewer::viewer(const YAML::Node& yaml_node,
 }
 
 void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
+    clicked_point3d_ = viewer->pick_point(ImGuiMouseButton_Left);
+
     ImGui::Begin("info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     const auto state = frame_publisher_->get_tracking_state();
     ImGui::Text("state: %s", state.c_str());
@@ -147,7 +150,7 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     }
     ImGui::Checkbox("Point splatting", &point_splatting_);
     if (point_splatting_) {
-        ImGui::DragFloat("Point radius", &point_radius_, 0.01f, 0.01f, 1.0f);
+        ImGui::DragFloat("Point radius", &point_radius_, 0.001f, 0.001f, 1.0f);
     }
     for (auto&& pair : checkbox_callback_map_) {
         if (ImGui::Checkbox(pair.first.c_str(), &is_paused_)) {
@@ -210,6 +213,8 @@ void viewer::run() {
 
         std::vector<Eigen::Vector3f> points;
         std::vector<Eigen::Vector3f> normals;
+        float min_distance = std::numeric_limits<float>::max();
+        unsigned int min_distance_id = 0;
         for (const auto& lm : landmarks) {
             if (!lm || lm->will_be_erased()) {
                 continue;
@@ -217,10 +222,24 @@ void viewer::run() {
             const Eigen::Vector3d pos_w = rot_ros_to_cv_map_frame_ * lm->get_pos_in_world();
             if (select_landmark_by_id_ && landmark_id_ == lm->id_) {
                 viewer->update_drawable("selected point", glk::Primitives::sphere(), guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)).translate(pos_w).scale(selected_landmark_scale_));
+                landmark_info_ = "num_observed: " + std::to_string(lm->get_num_observed()) + "\nobserved_ratio: " + std::to_string(lm->get_observed_ratio());
+            }
+            if (clicked_point3d_) {
+                float distance = (pos_w.cast<float>() - *clicked_point3d_).norm();
+                if (distance < min_distance) {
+                    min_distance = distance;
+                    min_distance_id = lm->id_;
+                }
             }
             points.push_back(pos_w.cast<float>());
             if (point_splatting_) {
                 normals.push_back((rot_ros_to_cv_map_frame_ * lm->get_obs_mean_normal()).cast<float>());
+            }
+        }
+        if (clicked_point3d_) {
+            if (min_distance < std::numeric_limits<float>::max()) {
+                select_landmark_by_id_ = true;
+                landmark_id_ = min_distance_id;
             }
         }
         auto cloud_buffer = std::make_shared<glk::PointCloudBuffer>(points);
