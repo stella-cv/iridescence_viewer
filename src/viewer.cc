@@ -41,6 +41,7 @@ viewer::viewer(const YAML::Node& yaml_node,
       min_shared_lms_(100),
       show_spanning_tree_(true),
       show_loop_edge_(true),
+      follow_camera_(false),
       filter_by_octave_(false),
       octave_(0),
       current_frame_scale_(0.05f),
@@ -112,6 +113,34 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     }
     ImGui::Checkbox("Show spanning tree", &show_spanning_tree_);
     ImGui::Checkbox("Show loop edge", &show_loop_edge_);
+    ImGui::Checkbox("Follow camera", &follow_camera_);
+    const char* items[] = {"orbit", "orbit_xz", "topdown", "arcball"};
+    static int item_current_idx = 0;
+    const char* combo_preview_value = items[item_current_idx];
+    if (ImGui::BeginCombo("camera mode", combo_preview_value)) {
+        for (int n = 0; n < IM_ARRAYSIZE(items); n++) {
+            const bool is_selected = (item_current_idx == n);
+            if (ImGui::Selectable(items[n], is_selected)) {
+                item_current_idx = n;
+                if (n == 0) {
+                    viewer->use_orbit_camera_control();
+                }
+                if (n == 1) {
+                    viewer->use_orbit_camera_control_xz();
+                }
+                if (n == 2) {
+                    viewer->use_topdown_camera_control();
+                }
+                if (n == 3) {
+                    viewer->use_arcball_camera_control();
+                }
+            }
+            if (is_selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
     ImGui::Checkbox("Filter by octave", &filter_by_octave_);
     if (filter_by_octave_) {
         ImGui::InputInt("Octave", &octave_);
@@ -153,6 +182,9 @@ void viewer::run() {
 
         Eigen::Matrix4d current_frame_pose = rotate_pose(map_publisher_->get_current_cam_pose().inverse().eval(), rot_ros_to_cv_map_frame_);
         viewer->update_drawable("current_frame", glk::Primitives::wire_frustum(), guik::FlatColor(Eigen::Vector4f(0.7f, 0.7f, 1.0f, 1.0f), current_frame_pose).scale(current_frame_scale_));
+        if (follow_camera_) {
+            viewer->lookat(current_frame_pose.block<3, 1>(0, 3).cast<float>());
+        }
 
         for (const auto& keyfrm : keyfrms) {
             if (!keyfrm || keyfrm->will_be_erased()) {

@@ -110,6 +110,7 @@ private:
     int min_shared_lms_ = 100;
     bool show_spanning_tree_ = false;
     bool show_loop_edge_ = false;
+    bool follow_camera_ = true;
     bool filter_by_octave_ = false;
     int octave_ = 0;
     bool point_splatting_ = false;
