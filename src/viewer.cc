@@ -11,6 +11,7 @@
 #include <glk/pointcloud_buffer.hpp>
 #include <glk/splatting.hpp>
 #include <glk/texture_opencv.hpp>
+#include <glk/thin_lines.hpp>
 #include <guik/viewer/light_viewer.hpp>
 
 #include <chrono>
@@ -36,13 +37,21 @@ viewer::viewer(const YAML::Node& yaml_node,
       is_paused_(false),
       show_all_keypoints_(false),
       show_rect_(false),
+      show_covisibility_graph_(true),
+      min_shared_lms_(100),
+      show_spanning_tree_(true),
+      show_loop_edge_(true),
       filter_by_octave_(false),
       octave_(0),
       current_frame_scale_(0.05f),
       keyframe_scale_(0.05f),
       selected_landmark_scale_(0.01f),
       texture_(nullptr),
-      clicked_(false) {}
+      clicked_(false) {
+    rot_ros_to_cv_map_frame_ << 0, 0, 1,
+        -1, 0, 0,
+        0, -1, 0;
+}
 
 void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     ImGui::Begin("info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -97,6 +106,12 @@ void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
     ImGui::DragFloat("Selected landmark scale", &selected_landmark_scale_, 0.01f, 0.01f, 1.0f);
     ImGui::Checkbox("Show all keypoints", &show_all_keypoints_);
     ImGui::Checkbox("Show rect", &show_rect_);
+    ImGui::Checkbox("Show covisibility graph", &show_covisibility_graph_);
+    if (show_covisibility_graph_) {
+        ImGui::DragInt("minimum shared landmarks", &min_shared_lms_);
+    }
+    ImGui::Checkbox("Show spanning tree", &show_spanning_tree_);
+    ImGui::Checkbox("Show loop edge", &show_loop_edge_);
     ImGui::Checkbox("Filter by octave", &filter_by_octave_);
     if (filter_by_octave_) {
         ImGui::InputInt("Octave", &octave_);
@@ -129,11 +144,6 @@ void viewer::run() {
     while (viewer->spin_once()) {
         viewer->clear_drawables();
 
-        Eigen::Matrix3d rot_ros_to_cv_map_frame = (Eigen::Matrix3d() << 0, 0, 1,
-                                                   -1, 0, 0,
-                                                   0, -1, 0)
-                                                      .finished();
-
         std::vector<std::shared_ptr<stella_vslam::data::keyframe>> keyfrms;
         map_publisher_->get_keyframes(keyfrms);
 
@@ -141,16 +151,29 @@ void viewer::run() {
         std::set<std::shared_ptr<stella_vslam::data::landmark>> local_landmarks;
         map_publisher_->get_landmarks(landmarks, local_landmarks);
 
-        Eigen::Matrix4d current_frame_pose = rotate_pose(map_publisher_->get_current_cam_pose().inverse().eval(), rot_ros_to_cv_map_frame);
+        Eigen::Matrix4d current_frame_pose = rotate_pose(map_publisher_->get_current_cam_pose().inverse().eval(), rot_ros_to_cv_map_frame_);
         viewer->update_drawable("current_frame", glk::Primitives::wire_frustum(), guik::FlatColor(Eigen::Vector4f(0.7f, 0.7f, 1.0f, 1.0f), current_frame_pose).scale(current_frame_scale_));
 
         for (const auto& keyfrm : keyfrms) {
             if (!keyfrm || keyfrm->will_be_erased()) {
                 continue;
             }
-            Eigen::Matrix4d keyfrms_pose = rotate_pose(keyfrm->get_pose_wc(), rot_ros_to_cv_map_frame);
+            Eigen::Matrix4d keyfrms_pose = rotate_pose(keyfrm->get_pose_wc(), rot_ros_to_cv_map_frame_);
             const auto name = std::string("keyfrms_pose_") + std::to_string(keyfrm->id_);
             viewer->update_drawable(name, glk::Primitives::wire_frustum(), guik::FlatColor(Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f), keyfrms_pose).scale(keyframe_scale_));
+        }
+
+        // draw covisibility graph
+        if (show_covisibility_graph_) {
+            draw_covisibility_graph(viewer, keyfrms);
+        }
+
+        if (show_spanning_tree_) {
+            draw_spanning_tree(viewer, keyfrms);
+        }
+
+        if (show_loop_edge_) {
+            draw_loop_edge(viewer, keyfrms);
         }
 
         std::vector<Eigen::Vector3f> points;
@@ -159,13 +182,13 @@ void viewer::run() {
             if (!lm || lm->will_be_erased()) {
                 continue;
             }
-            const Eigen::Vector3d pos_w = rot_ros_to_cv_map_frame * lm->get_pos_in_world();
+            const Eigen::Vector3d pos_w = rot_ros_to_cv_map_frame_ * lm->get_pos_in_world();
             if (select_landmark_by_id_ && landmark_id_ == lm->id_) {
                 viewer->update_drawable("selected point", glk::Primitives::sphere(), guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)).translate(pos_w).scale(selected_landmark_scale_));
             }
             points.push_back(pos_w.cast<float>());
             if (point_splatting_) {
-                normals.push_back((rot_ros_to_cv_map_frame * lm->get_obs_mean_normal()).cast<float>());
+                normals.push_back((rot_ros_to_cv_map_frame_ * lm->get_obs_mean_normal()).cast<float>());
             }
         }
         auto cloud_buffer = std::make_shared<glk::PointCloudBuffer>(points);
@@ -205,7 +228,7 @@ void viewer::run() {
                 continue;
             }
             landmark_id_ = lm->id_;
-            const Eigen::Vector3d pos_w = rot_ros_to_cv_map_frame * lm->get_pos_in_world();
+            const Eigen::Vector3d pos_w = rot_ros_to_cv_map_frame_ * lm->get_pos_in_world();
             viewer->update_drawable("selected point", glk::Primitives::sphere(), guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)).translate(pos_w).scale(selected_landmark_scale_));
             landmark_info_ = "num_observed: " + std::to_string(lm->get_num_observed()) + "\nobserved_ratio: " + std::to_string(lm->get_observed_ratio());
         }
@@ -308,6 +331,80 @@ unsigned int viewer::draw_tracked_points(
     }
 
     return num_tracked;
+}
+
+void viewer::draw_covisibility_graph(
+    std::shared_ptr<guik::LightViewer>& viewer,
+    std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms) {
+    std::vector<Eigen::Vector3f> covisibility_graph_lines;
+    for (const auto& keyfrm : keyfrms) {
+        if (!keyfrm || keyfrm->will_be_erased()) {
+            continue;
+        }
+        const stella_vslam::Vec3_t cam_center_1 = rot_ros_to_cv_map_frame_ * keyfrm->get_trans_wc();
+        const auto covisibilities = keyfrm->graph_node_->get_covisibilities_over_min_num_shared_lms(min_shared_lms_);
+        if (!covisibilities.empty()) {
+            for (const auto& covisibility : covisibilities) {
+                if (!covisibility || covisibility->will_be_erased()) {
+                    continue;
+                }
+                if (covisibility->id_ < keyfrm->id_) {
+                    continue;
+                }
+                const stella_vslam::Vec3_t cam_center_2 = rot_ros_to_cv_map_frame_ * covisibility->get_trans_wc();
+                covisibility_graph_lines.push_back(cam_center_1.cast<float>());
+                covisibility_graph_lines.push_back(cam_center_2.cast<float>());
+            }
+        }
+    }
+    auto covisibility_graph_drawable = std::make_shared<glk::ThinLines>(covisibility_graph_lines, false);
+    viewer->update_drawable("covisibility graph", covisibility_graph_drawable, guik::FlatColor(Eigen::Vector4f(0.7f, 0.7f, 1.0f, 1.0f)));
+}
+
+void viewer::draw_spanning_tree(
+    std::shared_ptr<guik::LightViewer>& viewer,
+    std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms) {
+    std::vector<Eigen::Vector3f> spanning_tree_lines;
+    for (const auto& keyfrm : keyfrms) {
+        if (!keyfrm || keyfrm->will_be_erased()) {
+            continue;
+        }
+        auto spanning_parent = keyfrm->graph_node_->get_spanning_parent();
+        if (spanning_parent) {
+            const stella_vslam::Vec3_t cam_center_1 = rot_ros_to_cv_map_frame_ * keyfrm->get_trans_wc();
+            const stella_vslam::Vec3_t cam_center_2 = rot_ros_to_cv_map_frame_ * spanning_parent->get_trans_wc();
+            spanning_tree_lines.push_back(cam_center_1.cast<float>());
+            spanning_tree_lines.push_back(cam_center_2.cast<float>());
+        }
+    }
+    auto spanning_tree_drawable = std::make_shared<glk::ThinLines>(spanning_tree_lines, false);
+    viewer->update_drawable("spanning tree", spanning_tree_drawable, guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)));
+}
+
+void viewer::draw_loop_edge(
+    std::shared_ptr<guik::LightViewer>& viewer,
+    std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms) {
+    std::vector<Eigen::Vector3f> loop_edge_lines;
+    for (const auto& keyfrm : keyfrms) {
+        if (!keyfrm || keyfrm->will_be_erased()) {
+            continue;
+        }
+        const stella_vslam::Vec3_t cam_center_1 = rot_ros_to_cv_map_frame_ * keyfrm->get_trans_wc();
+        const auto loop_edges = keyfrm->graph_node_->get_loop_edges();
+        for (const auto& loop_edge : loop_edges) {
+            if (!loop_edge) {
+                continue;
+            }
+            if (loop_edge->id_ < keyfrm->id_) {
+                continue;
+            }
+            const stella_vslam::Vec3_t cam_center_2 = rot_ros_to_cv_map_frame_ * loop_edge->get_trans_wc();
+            loop_edge_lines.push_back(cam_center_1.cast<float>());
+            loop_edge_lines.push_back(cam_center_2.cast<float>());
+        }
+    }
+    auto loop_edge_drawable = std::make_shared<glk::ThinLines>(loop_edge_lines, false);
+    viewer->update_drawable("loop edge", loop_edge_drawable, guik::FlatColor(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f)));
 }
 
 void viewer::request_terminate() {

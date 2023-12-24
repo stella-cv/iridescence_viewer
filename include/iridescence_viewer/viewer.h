@@ -34,6 +34,8 @@ namespace iridescence_viewer {
 
 class viewer {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     /**
      * Constructor
      * @param yaml_node
@@ -76,6 +78,15 @@ private:
         const std::vector<cv::KeyPoint>& keypoints,
         const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& landmarks,
         const bool mapping_is_enabled);
+    void draw_covisibility_graph(
+        std::shared_ptr<guik::LightViewer>& viewer,
+        std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms);
+    void draw_spanning_tree(
+        std::shared_ptr<guik::LightViewer>& viewer,
+        std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms);
+    void draw_loop_edge(
+        std::shared_ptr<guik::LightViewer>& viewer,
+        std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms);
 
     //! frame publisher
     const std::shared_ptr<stella_vslam::publish::frame_publisher> frame_publisher_;
@@ -95,6 +106,10 @@ private:
     bool is_paused_ = false;
     bool show_all_keypoints_ = false;
     bool show_rect_ = false;
+    bool show_covisibility_graph_ = true;
+    int min_shared_lms_ = 100;
+    bool show_spanning_tree_ = false;
+    bool show_loop_edge_ = false;
     bool filter_by_octave_ = false;
     int octave_ = 0;
     bool point_splatting_ = false;
@@ -107,6 +122,8 @@ private:
     Eigen::Vector2d clicked_pt_;
     std::string keypoint_info_;
     std::string landmark_info_;
+
+    Eigen::Matrix3d rot_ros_to_cv_map_frame_;
 
     //-----------------------------------------
     // management for terminate process
