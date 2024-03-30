@@ -55,7 +55,7 @@ viewer::viewer(const YAML::Node& yaml_node,
         0, -1, 0;
 }
 
-void viewer::ui_callback(std::shared_ptr<guik::LightViewer>& viewer) {
+void viewer::ui_callback(guik::LightViewer* viewer) {
     clicked_point3d_ = viewer->pick_point(ImGuiMouseButton_Left);
 
     ImGui::Begin("info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -385,7 +385,7 @@ unsigned int viewer::draw_tracked_points(
 }
 
 void viewer::draw_covisibility_graph(
-    std::shared_ptr<guik::LightViewer>& viewer,
+    guik::LightViewer* viewer,
     std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms) {
     std::vector<Eigen::Vector3f> covisibility_graph_lines;
     for (const auto& keyfrm : keyfrms) {
@@ -413,7 +413,7 @@ void viewer::draw_covisibility_graph(
 }
 
 void viewer::draw_spanning_tree(
-    std::shared_ptr<guik::LightViewer>& viewer,
+    guik::LightViewer* viewer,
     std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms) {
     std::vector<Eigen::Vector3f> spanning_tree_lines;
     for (const auto& keyfrm : keyfrms) {
@@ -433,7 +433,7 @@ void viewer::draw_spanning_tree(
 }
 
 void viewer::draw_loop_edge(
-    std::shared_ptr<guik::LightViewer>& viewer,
+    guik::LightViewer* viewer,
     std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms) {
     std::vector<Eigen::Vector3f> loop_edge_lines;
     for (const auto& keyfrm : keyfrms) {

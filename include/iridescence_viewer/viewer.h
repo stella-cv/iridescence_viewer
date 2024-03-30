@@ -71,7 +71,7 @@ public:
     }
 
 private:
-    void ui_callback(std::shared_ptr<guik::LightViewer>& viewer);
+    void ui_callback(guik::LightViewer* viewer);
 
     void draw_rect(cv::Mat& img, const cv::KeyPoint& keypoint, const cv::Scalar& color);
     unsigned int draw_tracked_points(
@@ -80,13 +80,13 @@ private:
         const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& landmarks,
         const bool mapping_is_enabled);
     void draw_covisibility_graph(
-        std::shared_ptr<guik::LightViewer>& viewer,
+        guik::LightViewer* viewer,
         std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms);
     void draw_spanning_tree(
-        std::shared_ptr<guik::LightViewer>& viewer,
+        guik::LightViewer* viewer,
         std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms);
     void draw_loop_edge(
-        std::shared_ptr<guik::LightViewer>& viewer,
+        guik::LightViewer* viewer,
         std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms);
 
     //! frame publisher
