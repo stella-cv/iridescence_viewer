@@ -117,7 +117,7 @@ void viewer::ui_callback(guik::LightViewer* viewer) {
     ImGui::Checkbox("Show spanning tree", &show_spanning_tree_);
     ImGui::Checkbox("Show loop edge", &show_loop_edge_);
     ImGui::Checkbox("Follow camera", &follow_camera_);
-    const char* items[] = {"orbit", "orbit_xz", "topdown", "arcball"};
+    const char* items[] = {"orbit", "orbit_xz", "topdown", "arcball", "fps"};
     static int item_current_idx = 0;
     const char* combo_preview_value = items[item_current_idx];
     if (ImGui::BeginCombo("camera mode", combo_preview_value)) {
@@ -136,6 +136,9 @@ void viewer::ui_callback(guik::LightViewer* viewer) {
                 }
                 if (n == 3) {
                     viewer->use_arcball_camera_control();
+                }
+                if (n == 4) {
+                    viewer->use_fps_camera_control();
                 }
             }
             if (is_selected) {
