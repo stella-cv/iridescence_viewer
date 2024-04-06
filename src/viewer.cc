@@ -61,6 +61,8 @@ void viewer::ui_callback(guik::LightViewer* viewer) {
     ImGui::Begin("info", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     const auto state = frame_publisher_->get_tracking_state();
     ImGui::Text("state: %s", state.c_str());
+    const auto elapsed_ms = frame_publisher_->get_tracking_time_elapsed_ms();
+    ImGui::Text("tracking time [ms]: %f", elapsed_ms);
     ImGui::Text("Selected keypoint ID: %d", keypoint_id_);
     ImGui::Text("Selected landmark ID: %d", landmark_id_);
 
