@@ -176,7 +176,7 @@ void viewer::ui_callback(guik::LightViewer* viewer) {
 }
 
 void viewer::run() {
-    auto viewer = guik::LightViewer::instance();
+    auto viewer = guik::LightViewer::instance(Eigen::Vector2i(-1, -1), false, "iridescence_viewer");
 
     viewer->register_ui_callback("ui", [this, &viewer] { ui_callback(viewer); });
 
