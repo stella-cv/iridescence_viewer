@@ -376,9 +376,9 @@ unsigned int viewer::draw_tracked_points(
         keypoint_info_ = "";
     }
     if (!distance_and_keypoint_idx.empty()) {
-        std::sort(distance_and_keypoint_idx.begin(), distance_and_keypoint_idx.end());
+        auto min_distance_keypoint_idx = std::min_element(distance_and_keypoint_idx.begin(), distance_and_keypoint_idx.end());
         select_keypoint_by_id_ = true;
-        keypoint_id_ = distance_and_keypoint_idx[0].second;
+        keypoint_id_ = min_distance_keypoint_idx->second;
         clicked_ = false;
     }
     if (select_keypoint_by_id_ && keypoint_id_ < keypoints.size()) {
