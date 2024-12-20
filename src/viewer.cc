@@ -343,6 +343,9 @@ unsigned int viewer::draw_tracked_points(
     std::vector<std::pair<double, unsigned int>> distance_and_keypoint_idx;
     bool keypoint_exists = false;
     for (unsigned int i = 0; i < keypoints.size(); ++i) {
+        if (i >= landmarks.size()){
+            continue;
+        }
         const auto& lm = landmarks.at(i);
         if (!lm) {
             continue;
