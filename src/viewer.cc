@@ -275,8 +275,9 @@ void viewer::run() {
         if (img.channels() == 1) {
             cvtColor(img, img, cv::COLOR_GRAY2BGR);
         }
-        auto frame_landmarks = frame_publisher_->get_landmarks();
-        auto keypoints = frame_publisher_->get_keypoints();
+        auto keypoints_and_landmarks = frame_publisher_->get_keypoints_and_landmarks();
+        auto keypoints = keypoints_and_landmarks.first;
+        auto frame_landmarks = keypoints_and_landmarks.second;
         draw_tracked_points(img, keypoints, frame_landmarks, frame_publisher_->get_mapping_is_enabled());
         texture_ = glk::create_texture(img);
 
